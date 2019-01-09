@@ -1,0 +1,72 @@
+import torch
+import numpy as np
+import torch.utils.data as Data
+from torchvision import datasets, transforms
+batch_size = 32
+class_num = 10
+feature_size = 784
+def train(batch_img,target,prior,condition):
+  for i in target:
+    prior[i] += 1
+  for i in range(len(batch_img)):
+    for j in range(feature_size):
+      condition[target[i],j,batch_img[i][j]] += 1
+  return prior,condition
+def calculate(img,prior,condition):
+  pre_t = np.zeros(class_num)
+  for i in range(class_num):
+    pre_t[i] = np.log(prior[i])
+    for j in range(feature_size):
+      pre_t[i] = pre_t[i] + np.log(condition[i,j,img[j]])
+
+  pred = np.argmax(pre_t)
+  return pred
+
+train_loader = Data.DataLoader(
+        datasets.MNIST('../data', train=True, download=True,
+                       transform=transforms.Compose([
+                           transforms.ToTensor(),
+                       ])),
+        batch_size=64, shuffle=True)
+test_loader = Data.DataLoader(
+        datasets.MNIST('../data', train=False, transform=transforms.Compose([
+                           transforms.ToTensor(),
+                       ])),
+        batch_size=64, shuffle=True)
+prior = np.ones(class_num)
+count = 0
+condition = np.ones([class_num,feature_size,2])
+for i, (images,target) in enumerate(train_loader):
+  print("train_batch:",i)
+  count = count + images.size()[0]
+  batch_img = []
+  for img in images:
+    img = img > 0.5
+    batch_img.append(img.int().reshape(-1,1))
+  prior,condition = train(batch_img,target,prior,condition)
+
+prior = prior / float(count + class_num)
+for i in range(class_num):
+  for j in range(feature_size):
+    a = condition[i,j,0]
+    b = condition[i,j,1]
+    condition[i,j,0] = float(a) / float(a + b)
+    condition[i,j,1] = float(b) / float(a + b)
+
+avg_acc = 0
+count = 0
+
+for i,(images,target) in enumerate(test_loader):
+  pre_target = []
+  count += len(images)
+  pre_tre = 0
+  for j in range(len(images)):
+    img = (images[j] > 0.5).int().reshape(-1,1)
+    pre = calculate(img,prior,condition)
+    pre_target.append(pre)
+    pre_tre += (pre == target[j])
+  avg_acc += pre_tre
+  print("pre:",pre_target)
+  print("label:",target)
+  print("ACC:",float(pre_tre) * 1.0 / len(images))
+print("TOTLE_ACC:",float(avg_acc) * 1.0 / count)
