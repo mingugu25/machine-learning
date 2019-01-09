@@ -53,20 +53,13 @@ for i in range(class_num):
     condition[i,j,0] = float(a) / float(a + b)
     condition[i,j,1] = float(b) / float(a + b)
 
-avg_acc = 0
-count = 0
-
 for i,(images,target) in enumerate(test_loader):
   pre_target = []
-  count += len(images)
   pre_tre = 0
   for j in range(len(images)):
     img = (images[j] > 0.5).int().reshape(-1,1)
     pre = calculate(img,prior,condition)
     pre_target.append(pre)
     pre_tre += (pre == target[j])
-  avg_acc += pre_tre
   print("pre:",pre_target)
   print("label:",target)
-  print("ACC:",float(pre_tre) * 1.0 / len(images))
-print("TOTLE_ACC:",float(avg_acc) * 1.0 / count)
